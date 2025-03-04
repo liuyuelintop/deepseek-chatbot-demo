@@ -1,36 +1,158 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DeepSeek Chatbot Demo Setup Guide
 
-## Getting Started
+`npx create-next-app@latest deepseek-chatbot-demo`
 
-First, run the development server:
+## 2. Shadcn UI Configuration
+
+### 2.1 Initialize Shadcn
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd deepseek-chatbot-demo
+npx shadcn-ui@latest init
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2.2 Add Chat Components
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npx shadcn-ui@latest add https://shadcn-chatbot-kit.vercel.app/r/chat.json
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 3. Dependency Installation
 
-## Learn More
+### 3.1 Core Dependencies
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install ai @ai-sdk/deepseek
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3.2 Environment Variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Create `.env` file:
 
-## Deploy on Vercel
+```env
+DEEPSEEK_API_KEY=your_api_key_here
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 4. Code Modifications
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 4.1 Fix Markdown Renderer (ui/markdown-renderer.tsx)
+
+```diff
+export function MarkdownRenderer({ children }: MarkdownRendererProps) {
+  return (
+•   <div className="space-y-3">
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={COMPONENTS}
+•       className="space-y-3"
+      >
+        {children}
+      </Markdown>
+•   </div>
+  )
+}
+```
+
+4.2 Build Chat Demo Component (components/chat-demo.tsx)
+
+```typescript
+"use client";
+
+import { useChat, type UseChatOptions } from "@ai-sdk/react";
+
+import { Chat } from "@/components/ui/chat";
+
+type ChatDemoProps = {
+  initialMessages?: UseChatOptions["initialMessages"];
+};
+
+export function ChatDemo(props: ChatDemoProps) {
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    append,
+    stop,
+    isLoading,
+  } = useChat(props);
+
+  return (
+    <div className="flex h-[90vh] w-full">
+      <Chat
+        className="grow"
+        messages={messages}
+        handleSubmit={handleSubmit}
+        input={input}
+        handleInputChange={handleInputChange}
+        isGenerating={isLoading}
+        stop={stop}
+        append={append}
+        suggestions={[
+          "Generate a tasty vegan lasagna recipe for 3 people.",
+          "Generate a list of 5 questions for a job interview for a software engineer.",
+          "Who won the 2022 FIFA World Cup?",
+        ]}
+      />
+    </div>
+  );
+}
+```
+
+4.3 Chat Interface Integration (app/page.tsx)
+
+```tsx
+import { ChatDemo } from "@/components/chat-demo";
+
+export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center max-w-4xl mx-auto">
+      <div className="border rounded-md p-4">
+        <ChatDemo />
+      </div>
+    </main>
+  );
+}
+```
+
+## 5. Backend Implementation
+
+### 5.1 API Route (app/api/chat/route.ts)
+
+```ts
+import { deepseek } from "@ai-sdk/deepseek";
+import { streamText } from "ai";
+
+export async function POST(req: Request) {
+  const { messages } = await req.json();
+
+  const result = streamText({
+    model: deepseek("deepseek-reasoner"),
+    messages,
+  });
+
+  return result.toDataStreamResponse({
+    sendReasoning: true,
+  });
+}
+```
+
+## 6. Running the Project
+
+### 6.1 Development Mode
+
+```bash
+npm dev
+```
+
+Access: http://localhost:3000
+
+### 6.2 Production Build
+
+```bash
+npm build && npm start
+```
+
+---
+
+> **Repository Template**: [deepseek-chatbot-demo](https://github.com/liuyuelintop/deepseek-chatbot-demo) > **Live Demo**: https://deepseek-chatbot-demo.vercel.app
